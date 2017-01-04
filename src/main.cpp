@@ -18,8 +18,6 @@ int main()
 
 	auto alphabetArray = RandomWeightArray(MAX_ALPHABET);
 		
-		//RandomWeightArray(MAX_ALPHABET);
-
 	// 純粋なパッケージマージアルゴリズム
 	{
 		auto codeLength = 
