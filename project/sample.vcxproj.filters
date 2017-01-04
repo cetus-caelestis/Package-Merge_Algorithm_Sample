@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MyUtility\PackageMergeAlgorithm.cpp">
+      <Filter>src\MyUtility\cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MyUtility\LazyPackageMergeAlgorithm.cpp">
+      <Filter>src\MyUtility\cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MyUtility\BoundaryPackageMergeAlgorithm.cpp">
+      <Filter>src\MyUtility\cpp</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{e0eda0f7-e62d-4413-8ee2-4e2e439d64ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\MyUtility">
+      <UniqueIdentifier>{41250a2e-f845-4cac-9294-175b62084b21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\MyUtility\cpp">
+      <UniqueIdentifier>{e363e41d-2df5-41b6-a7cb-3c1cd20a18b3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\MyUtility\PackageMergeAlgorithm.h">
+      <Filter>src\MyUtility</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
