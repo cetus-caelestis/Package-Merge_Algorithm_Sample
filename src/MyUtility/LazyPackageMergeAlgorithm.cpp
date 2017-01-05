@@ -105,7 +105,7 @@ namespace
 	// using
 	using SymbolNodeList    = std::vector<LazyPMNode>;
 
-	// @struct 先読みヘッダ
+	// @struct 先読みツリー
 	struct LookAheadTree
 	{
 		union
@@ -121,7 +121,7 @@ namespace
 		};
 		size_t				nextSymbleIndex = 0;
 
-		// @brief  先読みヘッダの合計の重みを返す
+		// @brief  先読みツリーの合計の重みを返す
 		//-------------------------------------------------------------
 		inline static unsigned long long GetWeight(const LookAheadTree& lookahead)
 		{
@@ -199,7 +199,8 @@ namespace
 	//-------------------------------------------------------------
 	std::vector<LookAheadTree> CreateInitialLookAheadPairs(const LazyPMNode& firstSymbol, const LazyPMNode& secondSymbol, size_t codeLengthLimit, LazyPMNodePool& /*ref*/rPool)
 	{	
-		std::vector<LookAheadTree> result(codeLengthLimit);
+		std::vector<LookAheadTree> result;
+		result.resize(codeLengthLimit);
 
 		// すべてのステージの先読みツリーは
 		// シンボルリスト中の一番目、二番目に小さな重みをもつシンボルで初期化される
@@ -307,6 +308,13 @@ std::vector<unsigned>  PackageMerge::LazyPM(const unsigned* symbolWeights, size_
 {
 	SymbolNodeList symbolList;
 	ExtractSymbolList(symbolWeights, arraySize, /*out*/symbolList);
+
+	// xxx: 
+	// たまに空き要素数が足りなくなることがあるっぽい 
+	// シンボル数 < ステージ数だったときに起こる？
+	// シンボルと同じ数になるようステージ数を減らすことにする。
+	if (codeLengthLimit > symbolList.size())
+		codeLengthLimit = symbolList.size();
 
 	if (IsImpossibleCoding(symbolList.size(), codeLengthLimit))
 		return std::vector<unsigned>(); 

@@ -126,8 +126,8 @@ namespace
 	// using
 	using SingleSymbolList    = std::vector<SingleSimbol>;
 
-	// @struct 先読みヘッダ
-	union LookAheadTree
+	// @struct 先読みチェーン
+	union LookAheadChain
 	{
 		union
 		{
@@ -141,9 +141,9 @@ namespace
 			BoundaryPMNode*		pElements[2];
 		};
 
-		// @brief  先読みヘッダの合計の重みを返す
+		// @brief  先読みチェーンの合計の重みを返す
 		//-------------------------------------------------------------
-		inline static unsigned long long GetWeight(const LookAheadTree& lookahead)
+		inline static unsigned long long GetWeight(const LookAheadChain& lookahead)
 		{
 			if (lookahead.pair.pFirst == nullptr || lookahead.pair.pSecond == nullptr)
 				throw std::runtime_error("nullが来るのはあり得ない");
@@ -152,9 +152,9 @@ namespace
 		}
 	};
 
-	// @brief  該当の先読みツリーがパッケージに利用されている
+	// @brief  該当の先読みチェーンがパッケージに利用されている
 	//-------------------------------------------------------------
-	inline bool IsUsedByPackage(const LookAheadTree& rLookaheadTree, const BoundaryPMNode& rPackageNode)
+	inline bool IsUsedByPackage(const LookAheadChain& rLookaheadTree, const BoundaryPMNode& rPackageNode)
 	{
 		return (rLookaheadTree.pair.pSecond == rPackageNode.pNextChainNode);
 	}
@@ -234,13 +234,14 @@ namespace
 		return pNode;
 	}
 
-	// @brief ステージ数だけの先読みツリーリストを作成
+	// @brief ステージ数だけの先読みチェーンリストを作成
 	//-------------------------------------------------------------
-	std::vector<LookAheadTree> CreateInitialLookAheadPairs(const SingleSimbol& firstSymbol, const SingleSimbol& secondSymbol, size_t numStage, BoundaryPMNodePool& /*ref*/rPool)
+	std::vector<LookAheadChain> CreateInitialLookAheadPairs(const SingleSimbol& firstSymbol, const SingleSimbol& secondSymbol, size_t numStage, BoundaryPMNodePool& /*ref*/rPool)
 	{
-		std::vector<LookAheadTree> result(numStage);
+		std::vector<LookAheadChain> result;
+		result.resize(numStage);
 
-		// すべてのステージの先読みツリーは
+		// すべてのステージの先読みチェーンは
 		// シンボルリスト中の一番目、二番目に小さな重みをもつシンボルで初期化される
 		for (size_t i = 0; i < numStage; ++i)
 		{
@@ -251,7 +252,7 @@ namespace
 	}
 	// @brief 使用可能なノードを見つけて返す
 	//-------------------------------------------------------------
-	BoundaryPMNode* FindFreeNode(BoundaryPMNodePool& rPool, std::vector<LookAheadTree>& rCurrentUsingTreeList)
+	BoundaryPMNode* FindFreeNode(BoundaryPMNodePool& rPool, std::vector<LookAheadChain>& rCurrentUsingTreeList)
 	{
 		auto nextElem = rPool.Borrow();
 		if (nextElem != nullptr)
@@ -260,7 +261,7 @@ namespace
 		// 空きがない -> ガーベジコレクション
 		rPool.AllReleaseRef();
 
-		for(LookAheadTree& lookaheadTree : rCurrentUsingTreeList)
+		for(LookAheadChain& lookaheadTree : rCurrentUsingTreeList)
 		{
 			for (auto node = lookaheadTree.pair.pFirst; node; node = node->pNextChainNode)
 				node->ref = true;
@@ -273,7 +274,7 @@ namespace
 
 	// @brief 次のノード要素を選択して返す
 	//-------------------------------------------------------------
-	BoundaryPMNode ChooseNextNode(const SingleSymbolList& singleSymbolList, const LookAheadTree& lookaheadTree, const BoundaryPMNode& beforeNode)
+	BoundaryPMNode ChooseNextNode(const SingleSymbolList& singleSymbolList, const LookAheadChain& lookaheadTree, const BoundaryPMNode& beforeNode)
 	{
 		size_t nextSymbolIndex = beforeNode.singleSimbleCount;
 
@@ -285,7 +286,7 @@ namespace
 		// 重みの小さなノードが先に返る。
 		// 重みが等しい場合はパッケージが優先
 		unsigned long long nextSymbolWeight  = singleSymbolList[nextSymbolIndex].weight;
-		unsigned long long nextPackageWeight = LookAheadTree::GetWeight(lookaheadTree);
+		unsigned long long nextPackageWeight = LookAheadChain::GetWeight(lookaheadTree);
 
 		// note: シンボル単体が選ばれた場合は、直前のノードが持つチェインノードを引き継ぐ
 		if (nextSymbolWeight < nextPackageWeight)
@@ -294,9 +295,9 @@ namespace
 			return BoundaryPMNode(lookaheadTree.pair.pFirst, lookaheadTree.pair.pSecond, nextSymbolIndex);
 
 	}
-	// @brief 再帰的に先読みツリーを再構築する
+	// @brief 再帰的に先読みチェーンを再構築する
 	//-------------------------------------------------------------
-	void IncrementLookAheadTreeRecursive(std::vector<LookAheadTree>& rLookAheadTreeList, size_t stageIdx, const SingleSymbolList& symbolList, BoundaryPMNodePool& rPool)
+	void IncrementLookAheadTreeRecursive(std::vector<LookAheadChain>& rLookAheadTreeList, size_t stageIdx, const SingleSymbolList& symbolList, BoundaryPMNodePool& rPool)
 	{
 		auto *pBeforeNode = rLookAheadTreeList[stageIdx].pair.pSecond;
 
@@ -358,8 +359,12 @@ std::vector<unsigned> PackageMerge::BoundaryPM(const unsigned* symbolWeights, si
 	if (symbolList.size() <= 1)
 		return BuildBitLengthsArray(symbolList.size(), symbolList, arraySize);
 
+	// 無駄を軽減
+	if (codeLengthLimit > symbolList.size())
+		codeLengthLimit = symbolList.size();
+
 	// 必要なプールの容量 = L(L+1) 
-	// 各ステージは先読みツリー(look ahead tree)を保有する。
+	// 各ステージは先読みチェーン(look ahead chain)を保有する。
 	// ここで、一番上のステージにはシンボル単体のノードしかないため、参照するノード数は 自身のノードのみの「1」
 	// それより下のステージでは、チェインで上のステージのノードを参照するため、
 	// 上にあるステージの数だけ、最大で「2,3,4」だけのノード参照する
@@ -367,7 +372,7 @@ std::vector<unsigned> PackageMerge::BoundaryPM(const unsigned* symbolWeights, si
 	// L + L-1 + ... + 1 
 	//	=(L+1) * L/2
 	//
-	// 先読みツリーは各ステージにつき 2つのノードを保有するため、
+	// 先読みチェーンは各ステージにつき 2つのノードを保有するため、
 	// 
 	// (L+1) * L/2*2 
 	//	= L(L+1) がステージ数 L に対して必要とされるプールの容量になる
